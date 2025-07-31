@@ -5,6 +5,7 @@ import (
 	"os"
 
 	"github.com/moutend/go-hook/pkg/types"
+	"github.com/renniemaharaj/keylight/internal/overlay"
 )
 
 // Key handling functions
@@ -20,6 +21,7 @@ func keyboardHandler(k *types.KeyboardEvent) {
 	case types.VK_2:
 		if ctrlDown && k.Message == types.WM_KEYDOWN {
 			overlayEnabled = false
+			overlay.HideOverlay()
 			fmt.Println("[Overlay] Deactivated")
 		}
 	case types.VK_3:
