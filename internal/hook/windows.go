@@ -11,15 +11,18 @@ import (
 	"github.com/moutend/go-hook/pkg/types"
 )
 
-// The keyboard event channel for triggering overlay and integrating with key hook
-var keyboardChan = make(chan types.KeyboardEvent, 100)
+var (
+	internalChan   = make(chan types.KeyboardEvent, 100)
+	externalChan   = make(chan types.KeyboardEvent, 100)
+	ctrlDown       = false
+	overlayEnabled = true
+)
 
-// Keyboard event channel get function
+// External channel for overlay use
 func GetEventChannel() chan types.KeyboardEvent {
-	return keyboardChan
+	return externalChan
 }
 
-// Start function for installing hook
 func Start() {
 	log.SetFlags(0)
 	log.SetPrefix("error: ")
@@ -29,31 +32,27 @@ func Start() {
 	}
 }
 
-// The local run function installs the key hook and subscribes to the keyboard event channel
 func run() error {
-	// Buffer size is depends on your need. The 100 is placeholder value.
-
-	if err := keyboard.Install(nil, keyboardChan); err != nil {
+	if err := keyboard.Install(nil, internalChan); err != nil {
 		return err
 	}
-
 	defer keyboard.Uninstall()
 
 	signalChan := make(chan os.Signal, 1)
 	signal.Notify(signalChan, os.Interrupt)
 
-	fmt.Println("start capturing keyboard input")
+	fmt.Println("Started keyboard hook")
+
 	for {
 		select {
-		case <-time.After(5 * time.Minute):
-			fmt.Println("Received timeout signal")
-			return nil
-		case <-signalChan:
-			fmt.Println("Received shutdown signal")
-			return nil
-		case k := <-keyboardChan:
-			fmt.Printf("Received %v %v\n", k.Message, k.VKCode)
+		case <-time.After(10 * time.Minute):
+			fmt.Println("Exiting: timed out")
 			continue
+		case <-signalChan:
+			fmt.Println("Exiting: interrupt signal")
+			return nil
+		case k := <-internalChan:
+			handleEvent(k)
 		}
 	}
 }
