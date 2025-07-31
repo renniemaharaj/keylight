@@ -7,7 +7,8 @@ import (
 	"github.com/moutend/go-hook/pkg/types"
 )
 
-func handleEvent(k types.KeyboardEvent) {
+// Key handling functions
+func keyboardHandler(k *types.KeyboardEvent) {
 	switch k.VKCode {
 	case types.VK_LCONTROL, types.VK_RCONTROL:
 		ctrlDown = (k.Message == types.WM_KEYDOWN)
@@ -31,7 +32,7 @@ func handleEvent(k types.KeyboardEvent) {
 	// Forward event if overlay is enabled
 	if overlayEnabled {
 		select {
-		case externalChan <- k:
+		case externalKeyBoardChan <- *k:
 		default:
 			// Drop if externalChan is full
 		}

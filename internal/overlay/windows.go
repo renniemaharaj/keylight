@@ -75,6 +75,13 @@ type MSG struct {
 
 var fadeOutTimer *time.Timer
 
+func HideOverlay() {
+	if fadeOutTimer != nil {
+		fadeOutTimer.Stop()
+		hideOverlay()
+	}
+}
+
 // Overylay_WINAPI shows a top white bar overlay when triggered by a keypress channel
 func Overylay_WINAPI(keyChan <-chan types.KeyboardEvent) {
 	go runOverlay()

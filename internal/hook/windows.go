@@ -5,22 +5,25 @@ import (
 	"log"
 	"os"
 	"os/signal"
-	"time"
 
 	"github.com/moutend/go-hook/pkg/keyboard"
+	"github.com/moutend/go-hook/pkg/mouse"
 	"github.com/moutend/go-hook/pkg/types"
 )
 
 var (
-	internalChan   = make(chan types.KeyboardEvent, 100)
-	externalChan   = make(chan types.KeyboardEvent, 100)
+	internalKeyboardChan = make(chan types.KeyboardEvent, 100)
+	externalKeyBoardChan = make(chan types.KeyboardEvent, 100)
+
+	internalMouseChan = make(chan types.MouseEvent, 100)
+
 	ctrlDown       = false
 	overlayEnabled = true
 )
 
 // External channel for overlay use
 func GetEventChannel() chan types.KeyboardEvent {
-	return externalChan
+	return externalKeyBoardChan
 }
 
 func Start() {
@@ -33,10 +36,15 @@ func Start() {
 }
 
 func run() error {
-	if err := keyboard.Install(nil, internalChan); err != nil {
+	if err := keyboard.Install(nil, internalKeyboardChan); err != nil {
 		return err
 	}
 	defer keyboard.Uninstall()
+
+	if err := mouse.Install(nil, internalMouseChan); err != nil {
+		return err
+	}
+	defer mouse.Uninstall()
 
 	signalChan := make(chan os.Signal, 1)
 	signal.Notify(signalChan, os.Interrupt)
@@ -45,14 +53,14 @@ func run() error {
 
 	for {
 		select {
-		case <-time.After(10 * time.Minute):
-			fmt.Println("Exiting: timed out")
-			continue
 		case <-signalChan:
 			fmt.Println("Exiting: interrupt signal")
 			return nil
-		case k := <-internalChan:
-			handleEvent(k)
+		case k := <-internalKeyboardChan:
+			keyboardHandler(&k)
+		case m := <-internalMouseChan:
+			mouseHandler(&m)
 		}
+
 	}
 }
