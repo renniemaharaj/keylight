@@ -32,5 +32,13 @@ cd keylight
 ### 2. Build
 
 ```bash
+go install github.com/akavel/rsrc@latest
+
+rsrc -ico icon.ico -manifest app.manifest -o cmd/resource.syso
+
+go install github.com/josephspurrier/goversioninfo/cmd/goversioninfo@latest
+
+goversioninfo -icon="icon.ico" -manifest="app.manifest" -o="cmd/resource.syso" versioninfo.json
+
 go build -ldflags="-H=windowsgui" -o keylight.exe ./cmd
 ```

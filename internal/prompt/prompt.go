@@ -8,13 +8,14 @@ import (
 
 var (
 	supportLink = "https://www.paypal.com/paypalme/newrennie"
-	statusTitle = "[Keylight v1] Running (background)"
+	statusTitle = "[Keylight v1.2] Running (background)"
 	statusBody  = `
 	Keylight is now running in the background.
 
   		CTRL + 1 → Toggle On
   		CTRL + 2 → Toggle Off
   		CTRL + 3 → Exit App
+		CTRL + 4 → Cycle Modes
 
 	Would you like to support future development?
 

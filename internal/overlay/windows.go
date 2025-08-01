@@ -11,33 +11,28 @@ import (
 	"golang.org/x/sys/windows"
 )
 
+// ==== DLL Imports ====
 var (
-	user32           = syscall.NewLazyDLL("user32.dll")
-	kernel32         = syscall.NewLazyDLL("kernel32.dll")
-	createWindowExW  = user32.NewProc("CreateWindowExW")
-	defWindowProcW   = user32.NewProc("DefWindowProcW")
-	registerClassExW = user32.NewProc("RegisterClassExW")
-	showWindow       = user32.NewProc("ShowWindow")
-	destroyWindow    = user32.NewProc("DestroyWindow")
-	// sendMessage      = user32.NewProc("SendMessageW")
-	getModuleHandleW = kernel32.NewProc("GetModuleHandleW")
-	dispatchMessageW = user32.NewProc("DispatchMessageW")
-	getMessageW      = user32.NewProc("GetMessageW")
-	translateMessage = user32.NewProc("TranslateMessage")
-
-	getSystemMetrics = user32.NewProc("GetSystemMetrics")
+	user32   = syscall.NewLazyDLL("user32.dll")
+	kernel32 = syscall.NewLazyDLL("kernel32.dll")
 )
 
-const (
-	// SM_CXSCREEN = 0 // Not relevant
-	SM_CYSCREEN = 1
-)
-
+// ==== Procedures from DLLs ====
 var (
-	hInstance windows.Handle
-	hWnd      windows.Handle
+	createWindowExW            = user32.NewProc("CreateWindowExW")
+	defWindowProcW             = user32.NewProc("DefWindowProcW")
+	registerClassExW           = user32.NewProc("RegisterClassExW")
+	showWindow                 = user32.NewProc("ShowWindow")
+	destroyWindow              = user32.NewProc("DestroyWindow")
+	dispatchMessageW           = user32.NewProc("DispatchMessageW")
+	getMessageW                = user32.NewProc("GetMessageW")
+	translateMessage           = user32.NewProc("TranslateMessage")
+	getSystemMetrics           = user32.NewProc("GetSystemMetrics")
+	setLayeredWindowAttributes = user32.NewProc("SetLayeredWindowAttributes")
+	getModuleHandleW           = kernel32.NewProc("GetModuleHandleW")
 )
 
+// ==== Window Constants ====
 const (
 	WS_POPUP         = 0x80000000
 	WS_VISIBLE       = 0x10000000
@@ -47,8 +42,31 @@ const (
 	SW_SHOW          = 5
 	SW_HIDE          = 0
 	WM_DESTROY       = 0x0002
+	SM_CYSCREEN      = 1
+	LWA_ALPHA        = 0x2
 )
 
+// ==== Globals ====
+var (
+	hInstance    windows.Handle
+	hWnd         windows.Handle
+	currentLevel = 0 // Default to 50%
+	fadeOutTimer *time.Timer
+)
+
+var opacityLevels = map[int]byte{
+	0: 128, // 50%
+	1: 192, // 75%
+	2: 255, // 100%
+}
+
+const (
+	overlayHeight     = 150
+	overlayClassName  = "KeyLightOverlay"
+	overlayWindowName = ""
+)
+
+// ==== Data Structures ====
 type WNDCLASSEX struct {
 	CbSize        uint32
 	Style         uint32
@@ -73,7 +91,13 @@ type MSG struct {
 	Pt      struct{ X, Y int32 }
 }
 
-var fadeOutTimer *time.Timer
+// ==== Public Entry ====
+func Overylay_WINAPI(keyChan <-chan types.KeyboardEvent) {
+	go runOverlay()
+	for range keyChan {
+		showOverlay()
+	}
+}
 
 func HideOverlay() {
 	if fadeOutTimer != nil {
@@ -82,53 +106,50 @@ func HideOverlay() {
 	}
 }
 
-// Overylay_WINAPI shows a top white bar overlay when triggered by a keypress channel
-func Overylay_WINAPI(keyChan <-chan types.KeyboardEvent) {
-	go runOverlay()
-	for range keyChan {
-		showOverlay()
+func CycleLevel() {
+	currentLevel++
+	if currentLevel > 2 {
+		currentLevel = 0
 	}
+	setLevel(opacityLevels[currentLevel])
 }
 
+// ==== Internal Functions ====
 func runOverlay() {
 	handle, _, _ := getModuleHandleW.Call(0)
 	hInstance = windows.Handle(handle)
 
-	className, _ := syscall.UTF16PtrFromString("KeyLightOverlay")
+	className, _ := syscall.UTF16PtrFromString(overlayClassName)
 	wndProc := syscall.NewCallback(wndProc)
 
 	wc := WNDCLASSEX{
 		CbSize:        uint32(unsafe.Sizeof(WNDCLASSEX{})),
 		Style:         0,
 		LpfnWndProc:   wndProc,
-		HInstance:     windows.Handle(hInstance),
+		HInstance:     hInstance,
 		HbrBackground: windows.Handle(6), // COLOR_WINDOW + 1
 		LpszClassName: className,
 	}
-
 	registerClassExW.Call(uintptr(unsafe.Pointer(&wc)))
 
-	ptr, _ := syscall.UTF16PtrFromString("")
-	const overlayHeight = 150
-
+	windowName, _ := syscall.UTF16PtrFromString(overlayWindowName)
 	screenHeight, _, _ := getSystemMetrics.Call(SM_CYSCREEN)
 	yPos := int(screenHeight) - overlayHeight
 
 	hWndRaw, _, _ := createWindowExW.Call(
-		WS_EX_TOPMOST|WS_EX_TOOLWINDOW,
+		WS_EX_TOPMOST|WS_EX_TOOLWINDOW|WS_EX_LAYERED,
 		uintptr(unsafe.Pointer(className)),
-		uintptr(unsafe.Pointer(ptr)),
+		uintptr(unsafe.Pointer(windowName)),
 		WS_POPUP|WS_VISIBLE,
-		0,             // x
-		uintptr(yPos), // y at bottom
-		1920,          // width
-		overlayHeight, // height
+		0,
+		uintptr(yPos),
+		1920,
+		overlayHeight,
 		0, 0,
 		uintptr(hInstance),
 		0,
 	)
 	hWnd = windows.Handle(hWndRaw)
-
 	showWindow.Call(uintptr(hWnd), SW_HIDE)
 
 	var msg MSG
@@ -144,7 +165,7 @@ func runOverlay() {
 
 func showOverlay() {
 	showWindow.Call(uintptr(hWnd), SW_SHOW)
-
+	setLevel(opacityLevels[currentLevel])
 	if fadeOutTimer != nil {
 		fadeOutTimer.Stop()
 	}
@@ -156,6 +177,15 @@ func showOverlay() {
 
 func hideOverlay() {
 	showWindow.Call(uintptr(hWnd), SW_HIDE)
+}
+
+func setLevel(alpha byte) {
+	setLayeredWindowAttributes.Call(
+		uintptr(hWnd),
+		0,
+		uintptr(alpha),
+		LWA_ALPHA,
+	)
 }
 
 func wndProc(hwnd windows.Handle, msg uint32, wParam, lParam uintptr) uintptr {

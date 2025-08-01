@@ -29,6 +29,10 @@ func keyboardHandler(k *types.KeyboardEvent) {
 			fmt.Println("[Overlay] Exit requested")
 			os.Exit(0)
 		}
+	case types.VK_4:
+		if ctrlDown && k.Message == types.WM_KEYDOWN {
+			overlay.CycleLevel()
+		}
 	}
 
 	// Forward event if overlay is enabled

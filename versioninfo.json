@@ -3,13 +3,13 @@
   {
     "FileVersion": {
       "Major": 1,
-      "Minor": 0,
+      "Minor": 2,
       "Patch": 0,
       "Build": 0
     },
     "ProductVersion": {
       "Major": 1,
-      "Minor": 0,
+      "Minor": 2,
       "Patch": 0,
       "Build": 0
     },
@@ -23,12 +23,12 @@
   {
     "CompanyName": "The Writer Company",
     "FileDescription": "Keylight Utility",
-    "FileVersion": "1.0.0.0",
+    "FileVersion": "1.2.0.0",
     "InternalName": "keylight",
     "LegalCopyright": "© 2025 TheWriter Company",
     "OriginalFilename": "keylight.exe",
     "ProductName": "Keylight",
-    "ProductVersion": "1.0.0.0"
+    "ProductVersion": "1.2.0.0"
   },
   "VarFileInfo":
   {
